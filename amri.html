@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ephemeral Letters</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Montserrat:wght@300;400&display=swap');
+        
+        body {
+            background-color: #fff0f5;
+            margin: 0;
+            padding: 0;
+            font-family: 'Montserrat', sans-serif;
+            color: #8b3a62;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            position: relative;
+        }
+        
+        h1 {
+            font-family: 'Dancing Script', cursive;
+            text-align: center;
+            font-size: 3rem;
+            color: #ff69b4;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            font-family: 'Dancing Script', cursive;
+            text-align: center;
+            font-size: 2rem;
+            color: #ff69b4;
+            margin-bottom: 20px;
+        }
+        
+        .letter-container {
+            background-color: #fff;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(255, 105, 180, 0.2);
+            position: relative;
+            line-height: 1.8;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+        }
+        
+        .letter-content {
+            min-height: 200px;
+        }
+        
+        .heart {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-color: #ff69b4;
+            transform: rotate(45deg);
+            opacity: 0.6;
+            animation: float 4s ease-in-out infinite;
+        }
+        
+        .heart:before, .heart:after {
+            content: '';
+            width: 30px;
+            height: 30px;
+            background-color: #ff69b4;
+            border-radius: 50%;
+            position: absolute;
+        }
+        
+        .heart:before {
+            top: -15px;
+            left: 0;
+        }
+        
+        .heart:after {
+            top: 0;
+            left: -15px;
+        }
+        
+        @keyframes float {
+            0% { transform: rotate(45deg) translateY(0px); }
+            50% { transform: rotate(45deg) translateY(-15px); }
+            100% { transform: rotate(45deg) translateY(0px); }
+        }
+        
+        .heart-1 {
+            top: 50px;
+            left: 10%;
+            animation-delay: 0s;
+        }
+        
+        .heart-2 {
+            top: 150px;
+            right: 10%;
+            animation-delay: 0.5s;
+        }
+        
+        .heart-3 {
+            bottom: 100px;
+            left: 15%;
+            animation-delay: 1s;
+        }
+        
+        .heart-4 {
+            bottom: 200px;
+            right: 15%;
+            animation-delay: 1.5s;
+        }
+        
+        .heart-5 {
+            top: 300px;
+            left: 20%;
+            animation-delay: 2s;
+        }
+        
+        .signature {
+            font-family: 'Dancing Script', cursive;
+            font-size: 2rem;
+            text-align: right;
+            margin-top: 40px;
+            color: #ff69b4;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ffb6c1;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        
+        textarea {
+            min-height: 200px;
+        }
+        
+        button {
+            background-color: #ff69b4;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        button:hover {
+            background-color: #ff1493;
+        }
+        
+        .timer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 1.2rem;
+            color: #ff69b4;
+        }
+        
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background-color: #ffe6f2;
+            border-radius: 8px 8px 0 0;
+            margin: 0 10px;
+            cursor: pointer;
+            border: 1px solid #ffb6c1;
+            border-bottom: none;
+        }
+        
+        .tab.active {
+            background-color: #fff;
+            color: #ff69b4;
+            font-weight: bold;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .loader {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #ff69b4;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        footer {
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: #ff69b4;
+            font-size: 0.9rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .message {
+            text-align: center;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+
+        .message.success {
+            background-color: #d4f7d4;
+            color: #2e7d32;
+        }
+
+        .message.error {
+            background-color: #ffd6d6;
+            color: #c62828;
+        }
+
+        .countdown {
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ephemeral Letters</h1>
+        
+        <div class="heart heart-1"></div>
+        <div class="heart heart-2"></div>
+        <div class="heart heart-3"></div>
+        <div class="heart heart-4"></div>
+        <div class="heart heart-5"></div>
+        
+        <div class="tabs">
+            <div class="tab active" data-tab="write">Write a Letter</div>
+            <div class="tab" data-tab="read">Read Your Letter</div>
+        </div>
+        
+        <div class="tab-content active" id="write">
+            <h2>Write a Letter to Someone Special</h2>
+            <div class="letter-container">
+                <form id="letter-form">
+                    <div class="form-group">
+                        <label for="sender-name">Your Name</label>
+                        <input type="text" id="sender-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="recipient-name">Recipient's Name</label>
+                        <input type="text" id="recipient-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="secret-code">Shared Secret Code</label>
+                        <input type="text" id="secret-code" required placeholder="Create a unique code between you two">
+                        <small>This code will be used by your recipient to access the letter</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="letter-text">Your Letter</label>
+                        <textarea id="letter-text" required placeholder="Write your heartfelt message here..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="sender-signature">Your Signature</label>
+                        <input type="text" id="sender-signature" required>
+                    </div>
+                    <button type="submit">Send Letter</button>
+                </form>
+            </div>
+            <div id="write-message" class="message hidden"></div>
+            <div id="next-letter-timer" class="timer hidden">
+                Next letter can be sent in <span class="countdown">24:00:00</span>
+            </div>
+        </div>
+        
+        <div class="tab-content" id="read">
+            <h2>Read Your Letter</h2>
+            <div class="letter-container" id="letter-access">
+                <form id="access-form">
+                    <div class="form-group">
+                        <label for="access-code">Enter Your Secret Code</label>
+                        <input type="text" id="access-code" required placeholder="The shared secret code">
+                    </div>
+                    <button type="submit">Read Letter</button>
+                </form>
+            </div>
+            
+            <div class="letter-container hidden" id="letter-display">
+                <div class="letter-content" id="display-content">
+                    <!-- Letter content will be displayed here -->
+                </div>
+                <div class="signature" id="display-signature"></div>
+                
+                <div id="reply-form-container" class="hidden">
+                    <h3>Send a Reply</h3>
+                    <form id="reply-form">
+                        <div class="form-group">
+                            <label for="reply-text">Your Reply</label>
+                            <textarea id="reply-text" required placeholder="Write your reply..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="reply-signature">Your Signature</label>
+                            <input type="text" id="reply-signature" required>
+                        </div>
+                        <button type="submit">Send Reply</button>
+                    </form>
+                </div>
+            </div>
+            
+            <div id="letter-expiry" class="timer hidden">
+                This letter will expire in <span class="countdown">24:00:00</span>
+            </div>
+            <div id="read-message" class="message hidden"></div>
+        </div>
+    </div>
+    
+    <footer>
+        Ephemeral Letters - Share moments that matter
+    </footer>
+
+    <script>
+        // DOM Elements
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const letterForm = document.getElementById('letter-form');
+        const accessForm = document.getElementById('access-form');
+        const replyForm = document.getElementById('reply-form');
+        const letterDisplay = document.getElementById('letter-display');
+        const letterAccess = document.getElementById('letter-access');
+        const displayContent = document.getElementById('display-content');
+        const displaySignature = document.getElementById('display-signature');
+        const replyFormContainer = document.getElementById('reply-form-container');
+        const nextLetterTimer = document.getElementById('next-letter-timer');
+        const letterExpiry = document.getElementById('letter-expiry');
+        const writeMessage = document.getElementById('write-message');
+        const readMessage = document.getElementById('read-message');
+
+        // Tab functionality
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => tc.classList.remove('active'));
+                
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // Check if user has sent a letter in the last 24 hours
+        function checkLetterCooldown() {
+            const lastLetterTime = localStorage.getItem('lastLetterTime');
+            if (lastLetterTime) {
+                const timeDiff = Date.now() - parseInt(lastLetterTime);
+                const hoursLeft = 24 - (timeDiff / (1000 * 60 * 60));
+                
+                if (hoursLeft > 0) {
+                    letterForm.style.display = 'none';
+                    nextLetterTimer.classList.remove('hidden');
+                    updateCooldownTimer(hoursLeft);
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // Update cooldown timer
+        function updateCooldownTimer(hoursLeft) {
+            const countdown = nextLetterTimer.querySelector('.countdown');
+            let timeLeft = hoursLeft * 60 * 60;
+            
+            const timerInterval = setInterval(() => {
+                const hours = Math.floor(timeLeft / 3600);
+                const minutes = Math.floor((timeLeft % 3600) / 60);
+                const seconds = Math.floor(timeLeft % 60);
+                
+                countdown.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    letterForm.style.display = 'block';
+                    nextLetterTimer.classList.add('hidden');
+                }
+                
+                timeLeft -= 1;
+            }, 1000);
+        }
+
+        // Update letter expiry timer
+        function updateExpiryTimer(expiryTime) {
+            const countdown = letterExpiry.querySelector('.countdown');
+            let timeLeft = (expiryTime - Date.now()) / 1000;
+            
+            const timerInterval = setInterval(() => {
+                const hours = Math.floor(timeLeft / 3600);
+                const minutes = Math.floor((timeLeft % 3600) / 60);
+                const seconds = Math.floor(timeLeft % 60);
+                
+                countdown.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    localStorage.removeItem(`letter_${accessForm.querySelector('#access-code').value}`);
+                    letterDisplay.classList.add('hidden');
+                    letterAccess.classList.remove('hidden');
+                    letterExpiry.classList.add('hidden');
+                    showMessage(readMessage, 'The letter has expired and is now gone forever.', 'error');
+                }
+                
+                timeLeft -= 1;
+            }, 1000);
+        }
+
+        // Show message
+        function showMessage(element, message, type) {
+            element.textContent = message;
+            element.classList.remove('hidden', 'success', 'error');
+            element.classList.add(type);
+            
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Send Letter
+        letterForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            if (!checkLetterCooldown()) {
+                return;
+            }
+            
+            const senderName = document.getElementById('sender-name').value;
+            const recipientName = document.getElementById('recipient-name').value;
+            const secretCode = document.getElementById('secret-code').value;
+            const letterText = document.getElementById('letter-text').value;
+            const signature = document.getElementById('sender-signature').value;
+            
+            const letter = {
+                from: senderName,
+                to: recipientName,
+                text: letterText,
+                signature: signature,
+                sent: Date.now(),
+                expires: Date.now() + (24 * 60 * 60 * 1000),
+                hasReply: false,
+                reply: null
+            };
+            
+            // Store in localStorage
+            localStorage.setItem(`letter_${secretCode}`, JSON.stringify(letter));
+            localStorage.setItem('lastLetterTime', Date.now().toString());
+            
+            // Reset form and show success message
+            letterForm.reset();
+            showMessage(writeMessage, 'Your letter has been sent! It will be available for 24 hours.', 'success');
+            
+            // Start cooldown
+            letterForm.style.display = 'none';
+            nextLetterTimer.classList.remove('hidden');
+            updateCooldownTimer(24);
+        });
+
+        // Access Letter
+        accessForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const accessCode = document.getElementById('access-code').value;
+            const letter = JSON.parse(localStorage.getItem(`letter_${accessCode}`));
+            
+            if (!letter) {
+                showMessage(readMessage, 'No letter found with this code or it has expired.', 'error');
+                return;
+            }
+            
+            // Display letter
+            displayContent.innerHTML = `
+                <p>Dear ${letter.to},</p>
+                ${letter.text.split('\n').map(line => `<p>${line}</p>`).join('')}
+                <p>From,<br>${letter.from}</p>
+            `;
+            displaySignature.textContent = letter.signature;
+            
+            // Show/hide reply form based on whether there's already a reply
+            if (letter.hasReply) {
+                replyFormContainer.classList.add('hidden');
+                displayContent.innerHTML += `
+                    <div style="margin-top: 40px; border-top: 1px solid #ffb6c1; padding-top: 20px;">
+                        <h3>Reply:</h3>
+                        ${letter.reply.text.split('\n').map(line => `<p>${line}</p>`).join('')}
+                        <p class="signature">${letter.reply.signature}</p>
+                    </div>
+                `;
+            } else {
+                replyFormContainer.classList.remove('hidden');
+            }
+            
+            // Show letter and hide access form
+            letterDisplay.classList.remove('hidden');
+            letterAccess.classList.add('hidden');
+            
+            // Show expiry timer
+            letterExpiry.classList.remove('hidden');
+            updateExpiryTimer(letter.expires);
+        });
+
+        // Send Reply
+        replyForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const accessCode = document.getElementById('access-code').value;
+            const replyText = document.getElementById('reply-text').value;
+            const replySignature = document.getElementById('reply-signature').value;
+            
+            const letter = JSON.parse(localStorage.getItem(`letter_${accessCode}`));
+            
+            if (!letter) {
+                showMessage(readMessage, 'The letter has expired.', 'error');
+                return;
+            }
+            
+            // Add reply to letter
+            letter.hasReply = true;
+            letter.reply = {
+                text: replyText,
+                signature: replySignature,
+                sent: Date.now()
+            };
+            
+            // Update stored letter
+            localStorage.setItem(`letter_${accessCode}`, JSON.stringify(letter));
+            
+            // Update display
+            replyFormContainer.classList.add('hidden');
+            displayContent.innerHTML += `
+                <div style="margin-top: 40px; border-top: 1px solid #ffb6c1; padding-top: 20px;">
+                    <h3>Reply:</h3>
+                    ${letter.reply.text.split('\n').map(line => `<p>${line}</p>`).join('')}
+                    <p class="signature">${letter.reply.signature}</p>
+                </div>
+            `;
+            
+            showMessage(readMessage, 'Your reply has been sent!', 'success');
+        });
+
+        // Initialize
+        window.addEventListener('load', () => {
+            checkLetterCooldown();
+        });
+    </script>
+</body>
+</html>
