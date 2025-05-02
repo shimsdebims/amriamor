@@ -14,7 +14,8 @@ app.use(cors({
   origin: '*' // Allow all origins for now, tighten this for production
 }));
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '../public')));
+
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI, {
