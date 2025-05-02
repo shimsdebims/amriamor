@@ -528,60 +528,70 @@
             }
         }
     
-                    async function accessLetter(e) {
-            e.preventDefault();
-            
-            const accessCode = document.getElementById('access-code').value.trim();
-            
-            if (!accessCode) {
-                showMessage(readMessage, 'Please enter a secret code', 'error');
-                return;
-            }
-            
-            const submitButton = e.target.querySelector('button[type="submit"]');
-            const loader = showLoader(submitButton);
-            
-            try {
-                // Use the correct endpoint for accessing letters
-                const response = await fetch(`${API_BASE_URL}/letters/${accessCode}`);
+                        async function accessLetter(e) {
+                e.preventDefault();
                 
-                if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Letter not found');
+                const accessCode = document.getElementById('access-code').value.trim();
+                
+                if (!accessCode) {
+                    showMessage(readMessage, 'Please enter a secret code', 'error');
+                    return;
                 }
                 
-                const letter = await response.json();
+                const submitButton = e.target.querySelector('button[type="submit"]');
+                const loader = showLoader(submitButton);
                 
-                // Display letter details
-                displayContent.innerHTML = `
-                <p>Dear ${letter.to},</p>
-                ${letter.text.split('\n').map(line => `<p>${line}</p>`).join('')}
-                <p>From,<br>${letter.from}</p>
-                `;
-                displaySignature.textContent = letter.signature;
-                
-                // Handle reply if it exists
-                if (letter.hasReply) {
-                replyFormContainer.classList.add('hidden');
-                displayReplyContent(letter.reply);
-                } else {
-                replyFormContainer.classList.remove('hidden');
+                try {
+                    const response = await fetch(`${API_BASE_URL}/letters/${accessCode}`);
+                    
+                    if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Letter not found');
+                    }
+                    
+                    const letter = await response.json();
+                    
+                    // Display letter content
+                    displayContent.innerHTML = `
+                    <p>Dear ${letter.to},</p>
+                    ${letter.text.split('\n').map(line => `<p>${line}</p>`).join('')}
+                    <p>From,<br>${letter.from}</p>
+                    `;
+                    displaySignature.textContent = letter.signature;
+                    
+                    // Display letter image if available
+                    const displaySelfieContainer = document.getElementById('display-selfie-container');
+                    const displaySelfie = document.getElementById('display-selfie');
+                    
+                    if (letter.image) {
+                    displaySelfie.src = letter.image;
+                    displaySelfieContainer.classList.remove('hidden');
+                    } else {
+                    displaySelfieContainer.classList.add('hidden');
+                    }
+                    
+                    // Handle reply if it exists
+                    if (letter.hasReply) {
+                    replyFormContainer.classList.add('hidden');
+                    displayReplyContent(letter.reply);
+                    } else {
+                    replyFormContainer.classList.remove('hidden');
+                    }
+                    
+                    // Show letter display and hide access form
+                    letterDisplay.classList.remove('hidden');
+                    letterAccess.classList.add('hidden');
+                    letterExpiry.classList.remove('hidden');
+                    
+                    // Update expiry timer
+                    updateExpiryTimer(new Date(letter.expires).getTime());
+                } catch (error) {
+                    console.error('Error accessing letter:', error);
+                    showMessage(readMessage, error.message || 'Error accessing letter', 'error');
+                } finally {
+                    hideLoader(submitButton, loader);
                 }
-                
-                // Show letter display and hide access form
-                letterDisplay.classList.remove('hidden');
-                letterAccess.classList.add('hidden');
-                letterExpiry.classList.remove('hidden');
-                
-                // Update expiry timer
-                updateExpiryTimer(new Date(letter.expires).getTime());
-            } catch (error) {
-                console.error('Error accessing letter:', error);
-                showMessage(readMessage, error.message || 'Error accessing letter', 'error');
-            } finally {
-                hideLoader(submitButton, loader);
-            }
-            }
+                }
 
             // Add a helper function to display reply content
             function displayReplyContent(reply) {
