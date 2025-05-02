@@ -24,12 +24,11 @@ console.log('Serving static files from:', publicPath);
 app.use(express.static(publicPath));
 
 // MongoDB Connection with better error handling
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Connected to MongoDB Atlas'))
-  .catch(err => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1); // Exit if DB connection fails
-  });
+mongoose.connect(process.env.MONGODB_URI, {
+  serverSelectionTimeoutMS: 5000,
+  retryWrites: true,
+  retryReads: true
+})
 
 // Updated Letter Model with image support
 const letterSchema = new mongoose.Schema({
