@@ -528,7 +528,7 @@
             }
         }
     
-        async function accessLetter(e) {
+                    async function accessLetter(e) {
             e.preventDefault();
             
             const accessCode = document.getElementById('access-code').value.trim();
@@ -542,46 +542,118 @@
             const loader = showLoader(submitButton);
             
             try {
+                // Use the correct endpoint for accessing letters
                 const response = await fetch(`${API_BASE_URL}/letters/${accessCode}`);
                 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.message || 'Letter not found');
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Letter not found');
                 }
                 
                 const letter = await response.json();
                 
+                // Display letter details
                 displayContent.innerHTML = `
-                    <p>Dear ${letter.to},</p>
-                    ${letter.text.split('\n').map(line => `<p>${line}</p>`).join('')}
-                    <p>From,<br>${letter.from}</p>
+                <p>Dear ${letter.to},</p>
+                ${letter.text.split('\n').map(line => `<p>${line}</p>`).join('')}
+                <p>From,<br>${letter.from}</p>
                 `;
                 displaySignature.textContent = letter.signature;
                 
+                // Handle reply if it exists
                 if (letter.hasReply) {
-                    replyFormContainer.classList.add('hidden');
-                    displayContent.innerHTML += `
-                        <div style="margin-top: 40px; border-top: 1px solid #ffb6c1; padding-top: 20px;">
-                            <h3>Reply:</h3>
-                            ${letter.reply.text.split('\n').map(line => `<p>${line}</p>`).join('')}
-                            <p class="signature">${letter.reply.signature}</p>
-                        </div>
-                    `;
+                replyFormContainer.classList.add('hidden');
+                displayReplyContent(letter.reply);
                 } else {
-                    replyFormContainer.classList.remove('hidden');
+                replyFormContainer.classList.remove('hidden');
                 }
                 
+                // Show letter display and hide access form
                 letterDisplay.classList.remove('hidden');
                 letterAccess.classList.add('hidden');
                 letterExpiry.classList.remove('hidden');
+                
+                // Update expiry timer
                 updateExpiryTimer(new Date(letter.expires).getTime());
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Error accessing letter:', error);
                 showMessage(readMessage, error.message || 'Error accessing letter', 'error');
             } finally {
                 hideLoader(submitButton, loader);
             }
-        }
+            }
+
+            // Add a helper function to display reply content
+            function displayReplyContent(reply) {
+            if (!reply || !reply.text) return;
+            
+            const replyHTML = `
+                <div style="margin-top: 40px; border-top: 1px solid #ffb6c1; padding-top: 20px;">
+                <h3>Reply:</h3>
+                ${reply.text.split('\n').map(line => `<p>${line}</p>`).join('')}
+                <p class="signature">${reply.signature || ''}</p>
+                </div>
+            `;
+            
+            // Append reply to the letter content
+            displayContent.innerHTML += replyHTML;
+            }
+
+            // Add necessary helper functions if they don't exist:
+            function showLoader(buttonElement) {
+            if (!buttonElement) return null;
+            
+            const loader = buttonElement.parentElement.querySelector('.loader');
+            if (loader) {
+                loader.style.display = 'block';
+                buttonElement.style.display = 'none';
+            }
+            return loader;
+            }
+
+            function hideLoader(buttonElement, loader) {
+            if (loader) {
+                loader.style.display = 'none';
+            }
+            if (buttonElement) {
+                buttonElement.style.display = 'block';
+            }
+            }
+
+            function showMessage(element, message, type) {
+            if (!element) return;
+            
+            element.textContent = message;
+            element.className = `message ${type}`;
+            element.classList.remove('hidden');
+            
+            // Hide message after 5 seconds
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+            }
+
+            function updateExpiryTimer(expiryTime) {
+            const timerElement = document.querySelector('#letter-expiry .countdown');
+            if (!timerElement) return;
+            
+            const timerId = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = expiryTime - now;
+                
+                if (distance < 0) {
+                clearInterval(timerId);
+                timerElement.textContent = 'Expired';
+                return;
+                }
+                
+                const hours = Math.floor(distance / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+            }
     
         async function sendReply(e) {
             e.preventDefault();
