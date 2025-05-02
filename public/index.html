@@ -327,6 +327,34 @@
             font-size: 0.8rem;
             margin-bottom: 20px;
         }
+
+        .camera-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        #camera-preview {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .camera-controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .camera-btn {
+            background-color: #ff69b4;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -339,9 +367,9 @@
         <div class="heart heart-4"></div>
         <div class="heart heart-5"></div>
         
-        <div class="server-status">
+        <div class="server-status hidden">
             <span class="status-indicator offline" id="status-indicator"></span>
-            <span id="server-status-text">Checking connection...</span>
+            <span id="server-status-text"></span>
         </div>
         
         <div class="tabs">
@@ -377,10 +405,17 @@
                     <div class="form-group">
                         <label>Add a Selfie (Optional)</label>
                         <div class="upload-btn-wrapper">
-                            <button class="btn" type="button">Choose Image</button>
+                            <button class="btn" type="button" id="upload-toggle">Choose Image</button>
                             <input type="file" id="selfie-upload" accept="image/*">
                         </div>
                         <small>The image will be deleted after 24 hours</small>
+                    </div>
+                    <div id="camera-container" class="camera-container hidden">
+                        <video id="camera-preview" autoplay playsinline></video>
+                        <div class="camera-controls">
+                            <button type="button" id="capture-btn" class="camera-btn">Capture</button>
+                            <button type="button" id="cancel-camera" class="camera-btn">Cancel</button>
+                        </div>
                     </div>
                     <div id="selfie-preview-container" class="selfie-container hidden">
                         <img id="selfie-preview" class="selfie-preview">
@@ -432,8 +467,15 @@
                         <div class="form-group">
                             <label>Add a Selfie (Optional)</label>
                             <div class="upload-btn-wrapper">
-                                <button class="btn" type="button">Choose Image</button>
+                                <button class="btn" type="button" id="reply-upload-toggle">Choose Image</button>
                                 <input type="file" id="reply-selfie-upload" accept="image/*">
+                            </div>
+                        </div>
+                        <div id="reply-camera-container" class="camera-container hidden">
+                            <video id="reply-camera-preview" autoplay playsinline></video>
+                            <div class="camera-controls">
+                                <button type="button" id="reply-capture-btn" class="camera-btn">Capture</button>
+                                <button type="button" id="reply-cancel-camera" class="camera-btn">Cancel</button>
                             </div>
                         </div>
                         <div id="reply-selfie-preview-container" class="selfie-container hidden">
@@ -464,12 +506,268 @@
     <script>
         // Configuration
         const API_BASE_URL = window.location.hostname === 'localhost' 
-    ? 'http://localhost:10000'
-    : ''; 
+            ? 'http://localhost:10000' 
+            : '';
 
-        // DOM Elements and helper functions remain the same until the API call functions
-    
-        // Updated API call functions:
+        // DOM Elements
+        const tabs = document.querySelectorAll('.tab');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const letterForm = document.getElementById('letter-form');
+        const accessForm = document.getElementById('access-form');
+        const replyForm = document.getElementById('reply-form');
+        const writeMessage = document.getElementById('write-message');
+        const readMessage = document.getElementById('read-message');
+        const nextLetterTimer = document.getElementById('next-letter-timer');
+        const letterDisplay = document.getElementById('letter-display');
+        const letterAccess = document.getElementById('letter-access');
+        const displayContent = document.getElementById('display-content');
+        const displaySignature = document.getElementById('display-signature');
+        const letterExpiry = document.getElementById('letter-expiry');
+        const replyFormContainer = document.getElementById('reply-form-container');
+        const serverStatus = document.querySelector('.server-status');
+
+        // Tab switching
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Camera functionality
+        const setupCamera = (previewElement, captureBtn, cancelBtn, previewContainer, imageInput) => {
+            let stream = null;
+            
+            const startCamera = async () => {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    previewElement.srcObject = stream;
+                } catch (err) {
+                    console.error("Error accessing camera:", err);
+                    showMessage(writeMessage, "Could not access camera", "error");
+                }
+            };
+            
+            const stopCamera = () => {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                previewElement.srcObject = null;
+            };
+            
+            const capturePhoto = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = previewElement.videoWidth;
+                canvas.height = previewElement.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(previewElement, 0, 0, canvas.width, canvas.height);
+                
+                const imageData = canvas.toDataURL('image/jpeg');
+                imageInput.value = imageData;
+                previewContainer.querySelector('img').src = imageData;
+                
+                stopCamera();
+                document.getElementById(previewElement.id + '-container').classList.add('hidden');
+                previewContainer.classList.remove('hidden');
+            };
+            
+            captureBtn.addEventListener('click', capturePhoto);
+            cancelBtn.addEventListener('click', () => {
+                stopCamera();
+                document.getElementById(previewElement.id + '-container').classList.add('hidden');
+            });
+            
+            return { startCamera, stopCamera };
+        };
+
+        // Setup main camera
+        const cameraPreview = document.getElementById('camera-preview');
+        const captureBtn = document.getElementById('capture-btn');
+        const cancelCamera = document.getElementById('cancel-camera');
+        const selfiePreviewContainer = document.getElementById('selfie-preview-container');
+        const selfiePreview = document.getElementById('selfie-preview');
+        const selfieUpload = document.getElementById('selfie-upload');
+        const uploadToggle = document.getElementById('upload-toggle');
+        
+        const { startCamera: startMainCamera } = setupCamera(
+            cameraPreview,
+            captureBtn,
+            cancelCamera,
+            selfiePreviewContainer,
+            selfieUpload
+        );
+
+        uploadToggle.addEventListener('click', () => {
+            document.getElementById('camera-container').classList.remove('hidden');
+            startMainCamera();
+        });
+
+        selfieUpload.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    selfiePreview.src = event.target.result;
+                    selfiePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('remove-selfie').addEventListener('click', () => {
+            selfiePreviewContainer.classList.add('hidden');
+            selfiePreview.src = '';
+            selfieUpload.value = '';
+        });
+
+        // Setup reply camera
+        const replyCameraPreview = document.getElementById('reply-camera-preview');
+        const replyCaptureBtn = document.getElementById('reply-capture-btn');
+        const replyCancelCamera = document.getElementById('reply-cancel-camera');
+        const replySelfiePreviewContainer = document.getElementById('reply-selfie-preview-container');
+        const replySelfiePreview = document.getElementById('reply-selfie-preview');
+        const replySelfieUpload = document.getElementById('reply-selfie-upload');
+        const replyUploadToggle = document.getElementById('reply-upload-toggle');
+        
+        const { startCamera: startReplyCamera } = setupCamera(
+            replyCameraPreview,
+            replyCaptureBtn,
+            replyCancelCamera,
+            replySelfiePreviewContainer,
+            replySelfieUpload
+        );
+
+        replyUploadToggle.addEventListener('click', () => {
+            document.getElementById('reply-camera-container').classList.remove('hidden');
+            startReplyCamera();
+        });
+
+        replySelfieUpload.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    replySelfiePreview.src = event.target.result;
+                    replySelfiePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        document.getElementById('remove-reply-selfie').addEventListener('click', () => {
+            replySelfiePreviewContainer.classList.add('hidden');
+            replySelfiePreview.src = '';
+            replySelfieUpload.value = '';
+        });
+
+        // Helper functions
+        function showLoader(buttonElement) {
+            if (!buttonElement) return null;
+            
+            const loader = buttonElement.parentElement.querySelector('.loader');
+            if (loader) {
+                loader.style.display = 'block';
+                buttonElement.style.display = 'none';
+            }
+            return loader;
+        }
+
+        function hideLoader(buttonElement, loader) {
+            if (loader) {
+                loader.style.display = 'none';
+            }
+            if (buttonElement) {
+                buttonElement.style.display = 'block';
+            }
+        }
+
+        function showMessage(element, message, type) {
+            if (!element) return;
+            
+            element.textContent = message;
+            element.className = `message ${type}`;
+            element.classList.remove('hidden');
+            
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+        }
+
+        function updateExpiryTimer(expiryTime) {
+            const timerElement = document.querySelector('#letter-expiry .countdown');
+            if (!timerElement) return;
+            
+            const timerId = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = expiryTime - now;
+                
+                if (distance < 0) {
+                    clearInterval(timerId);
+                    timerElement.textContent = 'Expired';
+                    return;
+                }
+                
+                const hours = Math.floor(distance / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                
+                timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function updateCooldownTimer(hours) {
+            const timerElement = document.querySelector('#next-letter-timer .countdown');
+            if (!timerElement) return;
+            
+            let remainingHours = hours;
+            let remainingMinutes = 0;
+            let remainingSeconds = 0;
+            
+            const timerId = setInterval(() => {
+                if (remainingSeconds > 0) {
+                    remainingSeconds--;
+                } else if (remainingMinutes > 0) {
+                    remainingMinutes--;
+                    remainingSeconds = 59;
+                } else if (remainingHours > 0) {
+                    remainingHours--;
+                    remainingMinutes = 59;
+                    remainingSeconds = 59;
+                } else {
+                    clearInterval(timerId);
+                    nextLetterTimer.classList.add('hidden');
+                    letterForm.style.display = 'block';
+                    return;
+                }
+                
+                timerElement.textContent = `${remainingHours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        function checkLetterCooldown() {
+            const lastLetterTime = localStorage.getItem('lastLetterTime');
+            if (!lastLetterTime) return true;
+            
+            const now = Date.now();
+            const cooldownPeriod = 24 * 60 * 60 * 1000; // 24 hours
+            const timeSinceLastLetter = now - parseInt(lastLetterTime);
+            
+            if (timeSinceLastLetter < cooldownPeriod) {
+                const remainingHours = 24 - Math.floor(timeSinceLastLetter / (60 * 60 * 1000));
+                letterForm.style.display = 'none';
+                nextLetterTimer.classList.remove('hidden');
+                updateCooldownTimer(remainingHours);
+                return false;
+            }
+            
+            return true;
+        }
+
+        // API Functions
         async function sendLetter(e) {
             e.preventDefault();
             
@@ -482,6 +780,7 @@
             const secretCode = document.getElementById('secret-code').value.trim();
             const letterText = document.getElementById('letter-text').value.trim();
             const signature = document.getElementById('sender-signature').value.trim();
+            const image = selfiePreview.src || '';
             
             if (!senderName || !recipientName || !secretCode || !letterText || !signature) {
                 showMessage(writeMessage, 'Please fill in all fields', 'error');
@@ -491,20 +790,21 @@
             const submitButton = e.target.querySelector('button[type="submit"]');
             const loader = showLoader(submitButton);
             
-                try {
-            const response = await fetch(`${API_BASE_URL}/letters`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    from: senderName,
-                    to: recipientName,
-                    secretCode,
-                    text: letterText,
-                    signature
-                })
-            });
+            try {
+                const response = await fetch(`${API_BASE_URL}/letters`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        from: senderName,
+                        to: recipientName,
+                        secretCode,
+                        text: letterText,
+                        signature,
+                        image
+                    })
+                });
                 
                 if (!response.ok) {
                     const error = await response.json();
@@ -514,10 +814,10 @@
                 const data = await response.json();
                 
                 letterForm.reset();
+                selfiePreviewContainer.classList.add('hidden');
                 showMessage(writeMessage, 'Letter sent successfully! Available for 24 hours.', 'success');
                 
                 localStorage.setItem('lastLetterTime', Date.now().toString());
-                letterForm.style.display = 'none';
                 nextLetterTimer.classList.remove('hidden');
                 updateCooldownTimer(24);
             } catch (error) {
@@ -527,150 +827,93 @@
                 hideLoader(submitButton, loader);
             }
         }
-    
-                        async function accessLetter(e) {
-                e.preventDefault();
+
+        async function accessLetter(e) {
+            e.preventDefault();
+            
+            const accessCode = document.getElementById('access-code').value.trim();
+            
+            if (!accessCode) {
+                showMessage(readMessage, 'Please enter a secret code', 'error');
+                return;
+            }
+            
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const loader = showLoader(submitButton);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/letters/${accessCode}`);
                 
-                const accessCode = document.getElementById('access-code').value.trim();
-                
-                if (!accessCode) {
-                    showMessage(readMessage, 'Please enter a secret code', 'error');
-                    return;
-                }
-                
-                const submitButton = e.target.querySelector('button[type="submit"]');
-                const loader = showLoader(submitButton);
-                
-                try {
-                    const response = await fetch(`${API_BASE_URL}/letters/${accessCode}`);
-                    
-                    if (!response.ok) {
+                if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.message || 'Letter not found');
-                    }
-                    
-                    const letter = await response.json();
-                    
-                    // Display letter content
-                    displayContent.innerHTML = `
+                }
+                
+                const letter = await response.json();
+                
+                // Display letter content
+                displayContent.innerHTML = `
                     <p>Dear ${letter.to},</p>
                     ${letter.text.split('\n').map(line => `<p>${line}</p>`).join('')}
                     <p>From,<br>${letter.from}</p>
-                    `;
-                    displaySignature.textContent = letter.signature;
-                    
-                    // Display letter image if available
-                    const displaySelfieContainer = document.getElementById('display-selfie-container');
-                    const displaySelfie = document.getElementById('display-selfie');
-                    
-                    if (letter.image) {
+                `;
+                displaySignature.textContent = letter.signature;
+                
+                // Display letter image if available
+                const displaySelfieContainer = document.getElementById('display-selfie-container');
+                const displaySelfie = document.getElementById('display-selfie');
+                
+                if (letter.image) {
                     displaySelfie.src = letter.image;
                     displaySelfieContainer.classList.remove('hidden');
-                    } else {
+                } else {
                     displaySelfieContainer.classList.add('hidden');
-                    }
-                    
-                    // Handle reply if it exists
-                    if (letter.hasReply) {
+                }
+                
+                // Handle reply if it exists
+                if (letter.hasReply) {
                     replyFormContainer.classList.add('hidden');
                     displayReplyContent(letter.reply);
-                    } else {
+                } else {
                     replyFormContainer.classList.remove('hidden');
-                    }
-                    
-                    // Show letter display and hide access form
-                    letterDisplay.classList.remove('hidden');
-                    letterAccess.classList.add('hidden');
-                    letterExpiry.classList.remove('hidden');
-                    
-                    // Update expiry timer
-                    updateExpiryTimer(new Date(letter.expires).getTime());
-                } catch (error) {
-                    console.error('Error accessing letter:', error);
-                    showMessage(readMessage, error.message || 'Error accessing letter', 'error');
-                } finally {
-                    hideLoader(submitButton, loader);
                 }
-                }
+                
+                // Show letter display and hide access form
+                letterDisplay.classList.remove('hidden');
+                letterAccess.classList.add('hidden');
+                letterExpiry.classList.remove('hidden');
+                
+                // Update expiry timer
+                updateExpiryTimer(new Date(letter.expires).getTime());
+            } catch (error) {
+                console.error('Error accessing letter:', error);
+                showMessage(readMessage, error.message || 'Error accessing letter', 'error');
+            } finally {
+                hideLoader(submitButton, loader);
+            }
+        }
 
-            // Add a helper function to display reply content
-            function displayReplyContent(reply) {
+        function displayReplyContent(reply) {
             if (!reply || !reply.text) return;
             
             const replyHTML = `
                 <div style="margin-top: 40px; border-top: 1px solid #ffb6c1; padding-top: 20px;">
-                <h3>Reply:</h3>
-                ${reply.text.split('\n').map(line => `<p>${line}</p>`).join('')}
-                <p class="signature">${reply.signature || ''}</p>
+                    <h3>Reply:</h3>
+                    ${reply.text.split('\n').map(line => `<p>${line}</p>`).join('')}
+                    <p class="signature">${reply.signature || ''}</p>
                 </div>
             `;
             
-            // Append reply to the letter content
             displayContent.innerHTML += replyHTML;
-            }
+        }
 
-            // Add necessary helper functions if they don't exist:
-            function showLoader(buttonElement) {
-            if (!buttonElement) return null;
-            
-            const loader = buttonElement.parentElement.querySelector('.loader');
-            if (loader) {
-                loader.style.display = 'block';
-                buttonElement.style.display = 'none';
-            }
-            return loader;
-            }
-
-            function hideLoader(buttonElement, loader) {
-            if (loader) {
-                loader.style.display = 'none';
-            }
-            if (buttonElement) {
-                buttonElement.style.display = 'block';
-            }
-            }
-
-            function showMessage(element, message, type) {
-            if (!element) return;
-            
-            element.textContent = message;
-            element.className = `message ${type}`;
-            element.classList.remove('hidden');
-            
-            // Hide message after 5 seconds
-            setTimeout(() => {
-                element.classList.add('hidden');
-            }, 5000);
-            }
-
-            function updateExpiryTimer(expiryTime) {
-            const timerElement = document.querySelector('#letter-expiry .countdown');
-            if (!timerElement) return;
-            
-            const timerId = setInterval(() => {
-                const now = new Date().getTime();
-                const distance = expiryTime - now;
-                
-                if (distance < 0) {
-                clearInterval(timerId);
-                timerElement.textContent = 'Expired';
-                return;
-                }
-                
-                const hours = Math.floor(distance / (1000 * 60 * 60));
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-                
-                timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            }, 1000);
-            }
-    
         async function sendReply(e) {
             e.preventDefault();
             
             const accessCode = document.getElementById('access-code').value.trim();
             const replyText = document.getElementById('reply-text').value.trim();
             const replySignature = document.getElementById('reply-signature').value.trim();
+            const image = replySelfiePreview.src || '';
             
             if (!replyText || !replySignature) {
                 showMessage(readMessage, 'Please fill in all fields', 'error');
@@ -688,7 +931,8 @@
                     },
                     body: JSON.stringify({
                         text: replyText,
-                        signature: replySignature
+                        signature: replySignature,
+                        image
                     })
                 });
                 
@@ -698,13 +942,10 @@
                 }
                 
                 replyFormContainer.classList.add('hidden');
-                displayContent.innerHTML += `
-                    <div style="margin-top: 40px; border-top: 1px solid #ffb6c1; padding-top: 20px;">
-                        <h3>Reply:</h3>
-                        ${replyText.split('\n').map(line => `<p>${line}</p>`).join('')}
-                        <p class="signature">${replySignature}</p>
-                    </div>
-                `;
+                displayReplyContent({
+                    text: replyText,
+                    signature: replySignature
+                });
                 
                 showMessage(readMessage, 'Reply sent successfully!', 'success');
             } catch (error) {
@@ -714,46 +955,45 @@
                 hideLoader(submitButton, loader);
             }
         }
-    
-        // Update event listeners
+
+        // Check server connection
+        async function checkServerStatus() {
+            const statusIndicator = document.getElementById('status-indicator');
+            const statusText = document.getElementById('server-status-text');
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/health`);
+                
+                if (response.ok) {
+                    statusIndicator.classList.remove('offline');
+                    statusIndicator.classList.add('online');
+                    statusText.textContent = 'Server connected';
+                    serverStatus.classList.remove('hidden');
+                } else {
+                    throw new Error('Server error');
+                }
+            } catch (error) {
+                statusIndicator.classList.remove('online');
+                statusIndicator.classList.add('offline');
+                statusText.textContent = 'Server disconnected';
+                serverStatus.classList.remove('hidden');
+                console.error('Server connection error:', error);
+            }
+        }
+
+        // Event Listeners
         letterForm.addEventListener('submit', sendLetter);
         accessForm.addEventListener('submit', accessLetter);
         replyForm.addEventListener('submit', sendReply);
-    
+
         // Initialize
         window.addEventListener('load', () => {
             checkLetterCooldown();
+            checkServerStatus();
+            
+            // Check server status periodically
+            setInterval(checkServerStatus, 30000);
         });
-
-        // Check server connection
-async function checkServerStatus() {
-    const statusIndicator = document.getElementById('status-indicator');
-    const statusText = document.getElementById('server-status-text');
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/health`);
-        
-        if (response.ok) {
-            statusIndicator.classList.remove('offline');
-            statusIndicator.classList.add('online');
-            statusText.textContent = 'Server connected';
-        } else {
-            throw new Error('Server error');
-        }
-    } catch (error) {
-        statusIndicator.classList.remove('online');
-        statusIndicator.classList.add('offline');
-        statusText.textContent = 'Server disconnected';
-        console.error('Server connection error:', error);
-    }
-}
-
-// Check server status on load and every 30 seconds
-window.addEventListener('load', () => {
-    checkLetterCooldown();
-    checkServerStatus();
-    
-    // Check server status periodically
-    setInterval(checkServerStatus, 30000);
-});
     </script>
+</body>
+</html>

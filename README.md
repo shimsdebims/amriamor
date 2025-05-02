@@ -1,1 +1,1 @@
-access it here:  https://shimsdebims.github.io/amriamor/
+access it here: https://shimsdebims.github.io/amriamor/
