@@ -9,49 +9,51 @@ const PORT = process.env.PORT || 10000;
 
 // Middleware
 app.use(cors({
-  origin: '*', // For development. In production, specify your domain
+  origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Increase JSON payload size limit to handle base64 images
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Serve static files
 const publicPath = path.join(__dirname, '../public');
-console.log('Serving static files from:', publicPath);
 app.use(express.static(publicPath));
 
-// MongoDB Connection with better error handling
+// MongoDB Connection
 mongoose.connect(process.env.MONGODB_URI, {
   serverSelectionTimeoutMS: 5000,
   retryWrites: true,
   retryReads: true
-})
+}).then(() => {
+  console.log('Connected to MongoDB');
+}).catch(err => {
+  console.error('MongoDB connection error:', err);
+});
 
-// Updated Letter Model with image support
+// Letter Model with image support
 const letterSchema = new mongoose.Schema({
   secretCode: { type: String, required: true, unique: true },
   from: { type: String, required: true },
   to: { type: String, required: true },
   text: { type: String, required: true },
   signature: { type: String, required: true },
-  image: { type: String }, // Base64 encoded image
+  image: { type: String },
   sent: { type: Date, default: Date.now },
   expires: { type: Date, required: true },
   hasReply: { type: Boolean, default: false },
   reply: {
     text: String,
     signature: String,
-    image: String, // Base64 encoded image for reply
+    image: String,
     sent: Date
   }
 });
 
 const Letter = mongoose.model('Letter', letterSchema);
 
-// Handler for creating a letter - now with image support
+// Create a letter
 const createLetterHandler = async (req, res) => {
   try {
     const { from, to, secretCode, text, signature, image } = req.body;
@@ -60,8 +62,7 @@ const createLetterHandler = async (req, res) => {
       return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // Check if image is too large
-    if (image && image.length > 5000000) { // ~5MB limit
+    if (image && image.length > 5000000) {
       return res.status(400).json({ message: 'Image too large. Please use a smaller image.' });
     }
 
@@ -70,7 +71,7 @@ const createLetterHandler = async (req, res) => {
       return res.status(400).json({ message: 'Secret code already in use' });
     }
 
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
     
     const newLetter = new Letter({
       from,
@@ -78,7 +79,7 @@ const createLetterHandler = async (req, res) => {
       secretCode,
       text,
       signature,
-      image, // Store the base64 image
+      image,
       expires
     });
     
@@ -94,7 +95,7 @@ const createLetterHandler = async (req, res) => {
   }
 };
 
-// Handler for retrieving a letter
+// Get a letter
 const getLetterHandler = async (req, res) => {
   try {
     const { secretCode } = req.params;
@@ -103,8 +104,6 @@ const getLetterHandler = async (req, res) => {
       return res.status(400).json({ message: 'Secret code is required' });
     }
     
-    console.log('Looking for letter with secret code:', secretCode); // Debugging
-    
     const letter = await Letter.findOne({ secretCode });
     
     if (!letter) {
@@ -112,12 +111,10 @@ const getLetterHandler = async (req, res) => {
     }
     
     if (new Date() > letter.expires) {
-      console.log('Letter expired, deleting...'); // Debugging
       await Letter.findByIdAndDelete(letter._id);
       return res.status(404).json({ message: 'Letter has expired' });
     }
     
-    console.log('Letter found:', letter._id); // Debugging
     res.json(letter);
   } catch (error) {
     console.error('Error retrieving letter:', error);
@@ -125,7 +122,7 @@ const getLetterHandler = async (req, res) => {
   }
 };
 
-// Handler for replying to a letter - now with image support
+// Reply to a letter
 const replyLetterHandler = async (req, res) => {
   try {
     const { secretCode } = req.params;
@@ -135,8 +132,7 @@ const replyLetterHandler = async (req, res) => {
       return res.status(400).json({ message: 'Text and signature are required' });
     }
     
-    // Check if image is too large
-    if (image && image.length > 5000000) { // ~5MB limit
+    if (image && image.length > 5000000) {
       return res.status(400).json({ message: 'Image too large. Please use a smaller image.' });
     }
     
@@ -154,7 +150,7 @@ const replyLetterHandler = async (req, res) => {
     letter.reply = {
       text,
       signature,
-      image, // Store the base64 image
+      image,
       sent: new Date()
     };
     
@@ -167,7 +163,7 @@ const replyLetterHandler = async (req, res) => {
   }
 };
 
-// Clean up expired letters (run periodically)
+// Clean up expired letters
 async function cleanupExpiredLetters() {
   try {
     const now = new Date();
@@ -181,8 +177,7 @@ async function cleanupExpiredLetters() {
 // Run cleanup every hour
 setInterval(cleanupExpiredLetters, 60 * 60 * 1000);
 
-// Set up routes
-// API format routes
+// Routes
 app.post('/api/letters', createLetterHandler);
 app.get('/api/letters/:secretCode', getLetterHandler);
 app.post('/api/letters/:secretCode/reply', replyLetterHandler);
@@ -197,7 +192,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// Catch-all route to handle client-side routing
+// Catch-all route for client-side routing
 app.get('*', (req, res) => {
   res.sendFile(path.join(publicPath, 'index.html'));
 });
@@ -205,5 +200,5 @@ app.get('*', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  cleanupExpiredLetters(); // Run initial cleanup on startup
+  cleanupExpiredLetters(); // Initial cleanup
 });
