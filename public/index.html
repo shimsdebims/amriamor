@@ -463,8 +463,10 @@
 
     <script>
         // Configuration
-        const API_BASE_URL = 'https://lovaz-letters.onrender.com'; // Replace with your Render URL
-        
+        const API_BASE_URL = window.location.hostname === 'localhost' 
+    ? 'http://localhost:10000'
+    : ''; 
+
         // DOM Elements and helper functions remain the same until the API call functions
     
         // Updated API call functions:
@@ -489,20 +491,20 @@
             const submitButton = e.target.querySelector('button[type="submit"]');
             const loader = showLoader(submitButton);
             
-            try {
-                const response = await fetch(`${API_BASE_URL}/letters`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        from: senderName,
-                        to: recipientName,
-                        secretCode,
-                        text: letterText,
-                        signature
-                    })
-                });
+                try {
+            const response = await fetch(`${API_BASE_URL}/letters`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    from: senderName,
+                    to: recipientName,
+                    secretCode,
+                    text: letterText,
+                    signature
+                })
+            });
                 
                 if (!response.ok) {
                     const error = await response.json();
@@ -640,4 +642,36 @@
         window.addEventListener('load', () => {
             checkLetterCooldown();
         });
+
+        // Check server connection
+async function checkServerStatus() {
+    const statusIndicator = document.getElementById('status-indicator');
+    const statusText = document.getElementById('server-status-text');
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/health`);
+        
+        if (response.ok) {
+            statusIndicator.classList.remove('offline');
+            statusIndicator.classList.add('online');
+            statusText.textContent = 'Server connected';
+        } else {
+            throw new Error('Server error');
+        }
+    } catch (error) {
+        statusIndicator.classList.remove('online');
+        statusIndicator.classList.add('offline');
+        statusText.textContent = 'Server disconnected';
+        console.error('Server connection error:', error);
+    }
+}
+
+// Check server status on load and every 30 seconds
+window.addEventListener('load', () => {
+    checkLetterCooldown();
+    checkServerStatus();
+    
+    // Check server status periodically
+    setInterval(checkServerStatus, 30000);
+});
     </script>
