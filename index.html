@@ -216,6 +216,7 @@
             height: 50px;
             animation: spin 2s linear infinite;
             margin: 20px auto;
+            display: none;
         }
         
         @keyframes spin {
@@ -256,13 +257,75 @@
             font-weight: bold;
         }
         
-        .debug-panel {
-            margin: 20px auto;
-            padding: 10px;
-            border: 1px dashed #ff69b4;
+        .selfie-preview {
+            max-width: 200px;
+            max-height: 200px;
+            margin: 10px auto;
+            display: block;
             border-radius: 8px;
-            max-width: 400px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .selfie-container {
             text-align: center;
+            margin: 20px 0;
+        }
+        
+        .displayed-selfie {
+            max-width: 300px;
+            max-height: 300px;
+            margin: 20px auto;
+            display: block;
+            border-radius: 10px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .upload-btn-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        
+        .btn {
+            border: 2px solid #ffb6c1;
+            color: #ff69b4;
+            background-color: white;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        
+        .upload-btn-wrapper input[type=file] {
+            font-size: 100px;
+            position: absolute;
+            left: 0;
+            top: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-indicator.online {
+            background-color: #4CAF50;
+        }
+        
+        .status-indicator.offline {
+            background-color: #F44336;
+        }
+        
+        .server-status {
+            text-align: center;
+            font-size: 0.8rem;
+            margin-bottom: 20px;
         }
     </style>
 </head>
@@ -275,6 +338,11 @@
         <div class="heart heart-3"></div>
         <div class="heart heart-4"></div>
         <div class="heart heart-5"></div>
+        
+        <div class="server-status">
+            <span class="status-indicator offline" id="status-indicator"></span>
+            <span id="server-status-text">Checking connection...</span>
+        </div>
         
         <div class="tabs">
             <div class="tab active" data-tab="write">Write a Letter</div>
@@ -306,7 +374,20 @@
                         <label for="sender-signature">Your Signature</label>
                         <input type="text" id="sender-signature" required>
                     </div>
-                    <button type="submit">Send Letter</button>
+                    <div class="form-group">
+                        <label>Add a Selfie (Optional)</label>
+                        <div class="upload-btn-wrapper">
+                            <button class="btn" type="button">Choose Image</button>
+                            <input type="file" id="selfie-upload" accept="image/*">
+                        </div>
+                        <small>The image will be deleted after 24 hours</small>
+                    </div>
+                    <div id="selfie-preview-container" class="selfie-container hidden">
+                        <img id="selfie-preview" class="selfie-preview">
+                        <button type="button" id="remove-selfie" class="btn">Remove Image</button>
+                    </div>
+                    <div class="loader" id="send-loader"></div>
+                    <button type="submit" id="send-button">Send Letter</button>
                 </form>
             </div>
             <div id="write-message" class="message hidden"></div>
@@ -323,13 +404,17 @@
                         <label for="access-code">Enter Your Secret Code</label>
                         <input type="text" id="access-code" required placeholder="The shared secret code">
                     </div>
-                    <button type="submit">Read Letter</button>
+                    <div class="loader" id="access-loader"></div>
+                    <button type="submit" id="access-button">Read Letter</button>
                 </form>
             </div>
             
             <div class="letter-container hidden" id="letter-display">
                 <div class="letter-content" id="display-content">
                     <!-- Letter content will be displayed here -->
+                </div>
+                <div id="display-selfie-container" class="selfie-container hidden">
+                    <img id="display-selfie" class="displayed-selfie">
                 </div>
                 <div class="signature" id="display-signature"></div>
                 
@@ -344,8 +429,24 @@
                             <label for="reply-signature">Your Signature</label>
                             <input type="text" id="reply-signature" required>
                         </div>
-                        <button type="submit">Send Reply</button>
+                        <div class="form-group">
+                            <label>Add a Selfie (Optional)</label>
+                            <div class="upload-btn-wrapper">
+                                <button class="btn" type="button">Choose Image</button>
+                                <input type="file" id="reply-selfie-upload" accept="image/*">
+                            </div>
+                        </div>
+                        <div id="reply-selfie-preview-container" class="selfie-container hidden">
+                            <img id="reply-selfie-preview" class="selfie-preview">
+                            <button type="button" id="remove-reply-selfie" class="btn">Remove Image</button>
+                        </div>
+                        <div class="loader" id="reply-loader"></div>
+                        <button type="submit" id="reply-button">Send Reply</button>
                     </form>
+                </div>
+                
+                <div id="reply-content" class="hidden">
+                    <!-- Reply content will be displayed here -->
                 </div>
             </div>
             
@@ -361,146 +462,93 @@
     </footer>
 
     <script>
-        // DOM Elements
-        const tabs = document.querySelectorAll('.tab');
-        const tabContents = document.querySelectorAll('.tab-content');
-        const letterForm = document.getElementById('letter-form');
-        const accessForm = document.getElementById('access-form');
-        const replyForm = document.getElementById('reply-form');
-        const letterDisplay = document.getElementById('letter-display');
-        const letterAccess = document.getElementById('letter-access');
-        const displayContent = document.getElementById('display-content');
-        const displaySignature = document.getElementById('display-signature');
-        const replyFormContainer = document.getElementById('reply-form-container');
-        const nextLetterTimer = document.getElementById('next-letter-timer');
-        const letterExpiry = document.getElementById('letter-expiry');
-        const writeMessage = document.getElementById('write-message');
-        const readMessage = document.getElementById('read-message');
-
-        // Tab functionality
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => {
-                tabs.forEach(t => t.classList.remove('active'));
-                tabContents.forEach(tc => tc.classList.remove('active'));
-                
-                tab.classList.add('active');
-                const tabId = tab.getAttribute('data-tab');
-                document.getElementById(tabId).classList.add('active');
-            });
-        });
-
-        // Function to debug localStorage
-        function debugLocalStorage() {
-            console.log("--- LocalStorage Debug ---");
-            // List all items in localStorage
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                console.log(`Key: ${key}`);
-                try {
-                    // Try to parse the value if it's JSON
-                    const value = JSON.parse(localStorage.getItem(key));
-                    console.log("Value:", value);
-                } catch (e) {
-                    // Just show the raw value if it's not valid JSON
-                    console.log("Raw value:", localStorage.getItem(key));
-                }
+        // Configuration
+        const API_BASE_URL = 'https://your-render-app-name.onrender.com/api'; // Replace with your Render URL
+        
+        // DOM Elements and helper functions remain the same until the API call functions
+    
+        // Updated API call functions:
+        async function sendLetter(e) {
+            e.preventDefault();
+            
+            if (!checkLetterCooldown()) {
+                return;
             }
-            console.log("------------------------");
-        }
-
-        // Check if user has sent a letter in the last 24 hours
-        function checkLetterCooldown() {
-            const lastLetterTime = localStorage.getItem('lastLetterTime');
-            if (lastLetterTime) {
-                const timeDiff = Date.now() - parseInt(lastLetterTime);
-                const hoursLeft = 24 - (timeDiff / (1000 * 60 * 60));
-                
-                if (hoursLeft > 0) {
-                    letterForm.style.display = 'none';
-                    nextLetterTimer.classList.remove('hidden');
-                    updateCooldownTimer(hoursLeft);
-                    return false;
-                }
+            
+            const senderName = document.getElementById('sender-name').value.trim();
+            const recipientName = document.getElementById('recipient-name').value.trim();
+            const secretCode = document.getElementById('secret-code').value.trim();
+            const letterText = document.getElementById('letter-text').value.trim();
+            const signature = document.getElementById('sender-signature').value.trim();
+            
+            if (!senderName || !recipientName || !secretCode || !letterText || !signature) {
+                showMessage(writeMessage, 'Please fill in all fields', 'error');
+                return;
             }
-            return true;
-        }
-
-        // Update cooldown timer
-        function updateCooldownTimer(hoursLeft) {
-            const countdown = nextLetterTimer.querySelector('.countdown');
-            let timeLeft = hoursLeft * 60 * 60;
             
-            const timerInterval = setInterval(() => {
-                const hours = Math.floor(timeLeft / 3600);
-                const minutes = Math.floor((timeLeft % 3600) / 60);
-                const seconds = Math.floor(timeLeft % 60);
-                
-                countdown.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    letterForm.style.display = 'block';
-                    nextLetterTimer.classList.add('hidden');
-                }
-                
-                timeLeft -= 1;
-            }, 1000);
-        }
-
-        // Update letter expiry timer
-        function updateExpiryTimer(expiryTime) {
-            const countdown = letterExpiry.querySelector('.countdown');
-            let timeLeft = (expiryTime - Date.now()) / 1000;
-            
-            const timerInterval = setInterval(() => {
-                const hours = Math.floor(timeLeft / 3600);
-                const minutes = Math.floor((timeLeft % 3600) / 60);
-                const seconds = Math.floor(timeLeft % 60);
-                
-                countdown.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-                
-                if (timeLeft <= 0) {
-                    clearInterval(timerInterval);
-                    localStorage.removeItem(`letter_${accessForm.querySelector('#access-code').value}`);
-                    letterDisplay.classList.add('hidden');
-                    letterAccess.classList.remove('hidden');
-                    letterExpiry.classList.add('hidden');
-                    showMessage(readMessage, 'The letter has expired and is now gone forever.', 'error');
-                }
-                
-                timeLeft -= 1;
-            }, 1000);
-        }
-
-        // Show message
-        function showMessage(element, message, type) {
-            element.textContent = message;
-            element.classList.remove('hidden', 'success', 'error');
-            element.classList.add(type);
-            
-            setTimeout(() => {
-                element.classList.add('hidden');
-            }, 5000);
-        }
-
-        // Enhanced letter access with better error handling
-        function accessLetterWithDebug() {
-            const accessCode = document.getElementById('access-code').value;
-            console.log(`Attempting to access letter with code: ${accessCode}`);
-            
-            const rawData = localStorage.getItem(`letter_${accessCode}`);
-            console.log(`Raw data retrieved: ${rawData}`);
-            
-            if (!rawData) {
-                showMessage(readMessage, 'No letter found with this code.', 'error');
-                return false;
-            }
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const loader = showLoader(submitButton);
             
             try {
-                const letter = JSON.parse(rawData);
-                console.log("Successfully parsed letter:", letter);
+                const response = await fetch(`${API_BASE_URL}/letters`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        from: senderName,
+                        to: recipientName,
+                        secretCode,
+                        text: letterText,
+                        signature
+                    })
+                });
                 
-                // Display letter
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to send letter');
+                }
+                
+                const data = await response.json();
+                
+                letterForm.reset();
+                showMessage(writeMessage, 'Letter sent successfully! Available for 24 hours.', 'success');
+                
+                localStorage.setItem('lastLetterTime', Date.now().toString());
+                letterForm.style.display = 'none';
+                nextLetterTimer.classList.remove('hidden');
+                updateCooldownTimer(24);
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage(writeMessage, error.message || 'Error sending letter', 'error');
+            } finally {
+                hideLoader(submitButton, loader);
+            }
+        }
+    
+        async function accessLetter(e) {
+            e.preventDefault();
+            
+            const accessCode = document.getElementById('access-code').value.trim();
+            
+            if (!accessCode) {
+                showMessage(readMessage, 'Please enter a secret code', 'error');
+                return;
+            }
+            
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const loader = showLoader(submitButton);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/letters/${accessCode}`);
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Letter not found');
+                }
+                
+                const letter = await response.json();
+                
                 displayContent.innerHTML = `
                     <p>Dear ${letter.to},</p>
                     ${letter.text.split('\n').map(line => `<p>${line}</p>`).join('')}
@@ -508,7 +556,6 @@
                 `;
                 displaySignature.textContent = letter.signature;
                 
-                // Show/hide reply form based on whether there's already a reply
                 if (letter.hasReply) {
                     replyFormContainer.classList.add('hidden');
                     displayContent.innerHTML += `
@@ -522,194 +569,75 @@
                     replyFormContainer.classList.remove('hidden');
                 }
                 
-                // Show letter and hide access form
                 letterDisplay.classList.remove('hidden');
                 letterAccess.classList.add('hidden');
-                
-                // Show expiry timer
                 letterExpiry.classList.remove('hidden');
-                updateExpiryTimer(letter.expires);
-                return true;
-            } catch (e) {
-                console.error("Error parsing letter data:", e);
-                showMessage(readMessage, 'Error reading the letter data.', 'error');
-                return false;
+                updateExpiryTimer(new Date(letter.expires).getTime());
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage(readMessage, error.message || 'Error accessing letter', 'error');
+            } finally {
+                hideLoader(submitButton, loader);
             }
         }
-
-        // Add debug controls
-        function addDebugControls() {
-            const debugDiv = document.createElement('div');
-            debugDiv.className = 'debug-panel';
+    
+        async function sendReply(e) {
+            e.preventDefault();
             
-            const heading = document.createElement('h3');
-            heading.textContent = 'Debug Controls';
-            heading.style.marginBottom = '10px';
+            const accessCode = document.getElementById('access-code').value.trim();
+            const replyText = document.getElementById('reply-text').value.trim();
+            const replySignature = document.getElementById('reply-signature').value.trim();
             
-            const clearButton = document.createElement('button');
-            clearButton.textContent = 'Clear All Letters';
-            clearButton.style.marginRight = '10px';
-            clearButton.onclick = function() {
-                if (confirm('Are you sure you want to clear all letters from localStorage?')) {
-                    // Clear all localStorage items that start with 'letter_'
-                    Object.keys(localStorage).forEach(key => {
-                        if (key.startsWith('letter_')) {
-                            localStorage.removeItem(key);
-                        }
-                    });
-                    alert('All letters cleared!');
+            if (!replyText || !replySignature) {
+                showMessage(readMessage, 'Please fill in all fields', 'error');
+                return;
+            }
+            
+            const submitButton = e.target.querySelector('button[type="submit"]');
+            const loader = showLoader(submitButton);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/letters/${accessCode}/reply`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        text: replyText,
+                        signature: replySignature
+                    })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to send reply');
                 }
-            };
-            
-            const debugButton = document.createElement('button');
-            debugButton.textContent = 'Show localStorage Debug';
-            debugButton.onclick = function() {
-                debugLocalStorage();
-                alert('Check browser console for localStorage debug info (F12 to open)');
-            };
-            
-            const createTestButton = document.createElement('button');
-            createTestButton.textContent = 'Create Test Letter';
-            createTestButton.style.marginTop = '10px';
-            createTestButton.onclick = function() {
-                const testCode = 'test123';
-                const testLetter = {
-                    from: 'Test Sender',
-                    to: 'Test Recipient',
-                    text: 'This is a test letter to verify that the system is working correctly.',
-                    signature: 'Test',
-                    sent: Date.now(),
-                    expires: Date.now() + (24 * 60 * 60 * 1000),
-                    hasReply: false,
-                    reply: null
-                };
                 
-                localStorage.setItem(`letter_${testCode}`, JSON.stringify(testLetter));
-                alert(`Test letter created with code: ${testCode}`);
-            };
-            
-            debugDiv.appendChild(heading);
-            debugDiv.appendChild(clearButton);
-            debugDiv.appendChild(debugButton);
-            debugDiv.appendChild(document.createElement('br'));
-            debugDiv.appendChild(createTestButton);
-            
-            document.querySelector('.container').appendChild(debugDiv);
-        }
-
-        // Modified letter sending function with better error handling
-        function enhancedSendLetter(e) {
-            e.preventDefault();
-            
-            if (!checkLetterCooldown()) {
-                return;
-            }
-            
-            const senderName = document.getElementById('sender-name').value;
-            const recipientName = document.getElementById('recipient-name').value;
-            const secretCode = document.getElementById('secret-code').value;
-            const letterText = document.getElementById('letter-text').value;
-            const signature = document.getElementById('sender-signature').value;
-            
-            console.log(`Attempting to send letter with code: ${secretCode}`);
-            
-            const letter = {
-                from: senderName,
-                to: recipientName,
-                text: letterText,
-                signature: signature,
-                sent: Date.now(),
-                expires: Date.now() + (24 * 60 * 60 * 1000),
-                hasReply: false,
-                reply: null
-            };
-            
-            // Store in localStorage
-            try {
-                const letterJson = JSON.stringify(letter);
-                localStorage.setItem(`letter_${secretCode}`, letterJson);
-                console.log(`Letter stored successfully: ${letterJson}`);
-                
-                // Verify storage
-                const storedLetter = localStorage.getItem(`letter_${secretCode}`);
-                console.log(`Verification - retrieved: ${storedLetter}`);
-                
-                localStorage.setItem('lastLetterTime', Date.now().toString());
-                
-                // Reset form and show success message
-                letterForm.reset();
-                showMessage(writeMessage, 'Your letter has been sent! It will be available for 24 hours.', 'success');
-                
-                // Start cooldown
-                letterForm.style.display = 'none';
-                nextLetterTimer.classList.remove('hidden');
-                updateCooldownTimer(24);
-            } catch (e) {
-                console.error("Error storing letter:", e);
-                showMessage(writeMessage, 'Error storing your letter. Please try again.', 'error');
-            }
-        }
-
-        // Send Reply with enhanced error handling
-        function enhancedSendReply(e) {
-            e.preventDefault();
-            
-            const accessCode = document.getElementById('access-code').value;
-            const replyText = document.getElementById('reply-text').value;
-            const replySignature = document.getElementById('reply-signature').value;
-            
-            console.log(`Attempting to reply to letter with code: ${accessCode}`);
-            
-            const rawData = localStorage.getItem(`letter_${accessCode}`);
-            if (!rawData) {
-                showMessage(readMessage, 'The letter has expired or was removed.', 'error');
-                return;
-            }
-            
-            try {
-                const letter = JSON.parse(rawData);
-                
-                // Add reply to letter
-                letter.hasReply = true;
-                letter.reply = {
-                    text: replyText,
-                    signature: replySignature,
-                    sent: Date.now()
-                };
-                
-                // Update stored letter
-                localStorage.setItem(`letter_${accessCode}`, JSON.stringify(letter));
-                console.log("Reply added to letter:", letter);
-                
-                // Update display
                 replyFormContainer.classList.add('hidden');
                 displayContent.innerHTML += `
                     <div style="margin-top: 40px; border-top: 1px solid #ffb6c1; padding-top: 20px;">
                         <h3>Reply:</h3>
-                        ${letter.reply.text.split('\n').map(line => `<p>${line}</p>`).join('')}
-                        <p class="signature">${letter.reply.signature}</p>
+                        ${replyText.split('\n').map(line => `<p>${line}</p>`).join('')}
+                        <p class="signature">${replySignature}</p>
                     </div>
                 `;
                 
-                showMessage(readMessage, 'Your reply has been sent!', 'success');
-            } catch (e) {
-                console.error("Error adding reply:", e);
-                showMessage(readMessage, 'Error adding your reply. Please try again.', 'error');
+                showMessage(readMessage, 'Reply sent successfully!', 'success');
+            } catch (error) {
+                console.error('Error:', error);
+                showMessage(readMessage, error.message || 'Error sending reply', 'error');
+            } finally {
+                hideLoader(submitButton, loader);
             }
         }
-
-        // Replace original event listeners with enhanced versions
-        letterForm.addEventListener('submit', enhancedSendLetter);
-        
-        accessForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            accessLetterWithDebug();
-        });
-        
-        replyForm.addEventListener('submit', enhancedSendReply);
-
+    
+        // Update event listeners
+        letterForm.addEventListener('submit', sendLetter);
+        accessForm.addEventListener('submit', accessLetter);
+        replyForm.addEventListener('submit', sendReply);
+    
         // Initialize
         window.addEventListener('load', () => {
             checkLetterCooldown();
-            addDebugControls();
         });
+    </script>
