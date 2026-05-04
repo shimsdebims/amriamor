@@ -505,9 +505,7 @@
 
     <script>
         // Configuration
-        const API_BASE_URL = window.location.hostname === 'localhost' 
-            ? 'http://localhost:10000' 
-            : '';
+        const API_BASE_URL = window.location.origin;
 
         // DOM Elements
         const tabs = document.querySelectorAll('.tab');
@@ -842,11 +840,21 @@
             const loader = showLoader(submitButton);
             
             try {
+                // Show connection status information
+                serverStatus.classList.remove('hidden');
+                
+                // Log the request URL for debugging
+                console.log(`Accessing letter at: ${API_BASE_URL}/letters/${accessCode}`);
+                
                 const response = await fetch(`${API_BASE_URL}/letters/${accessCode}`);
                 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.message || 'Letter not found');
+                    if (response.status === 404) {
+                        throw new Error('Letter not found with this code');
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || `Server returned error ${response.status}`);
+                    }
                 }
                 
                 const letter = await response.json();
@@ -887,7 +895,12 @@
                 updateExpiryTimer(new Date(letter.expires).getTime());
             } catch (error) {
                 console.error('Error accessing letter:', error);
-                showMessage(readMessage, error.message || 'Error accessing letter', 'error');
+                
+                if (error.message === 'Failed to fetch') {
+                    showMessage(readMessage, 'Could not connect to the server. Please check your internet connection or contact support.', 'error');
+                } else {
+                    showMessage(readMessage, error.message || 'Error accessing letter', 'error');
+                }
             } finally {
                 hideLoader(submitButton, loader);
             }
